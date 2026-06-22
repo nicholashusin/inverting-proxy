@@ -473,17 +473,24 @@ func (w *streamingResponseWriter) WriteHeader(status int) {
 
 	// Initialize the response trailers.
 	w.trailer = make(http.Header)
-	for _, k := range w.Header().Values("Trailer") {
-		// Initialize trailers with empty slices for any pre-declared values.
-		//
-		// This is necessary for the httputil.ReverseProxy type to forward them correctly.
-		// See [here](https://github.com/golang/go/blob/5e3c4016a436c357a57a6f7870913c6911c6904e/src/net/http/httputil/reverseproxy.go#L509)
-		if _, ok := hopHeaders[k]; ok {
-			continue
+	for _, joined := range w.Header().Values("Trailer") {
+		for _, k := range strings.Split(joined, ",") {
+			k = strings.TrimSpace(k)
+			if k == "" {
+				continue
+			}
+			if _, ok := hopHeaders[k]; ok {
+				continue
+			}
+			// Initialize trailers with empty slices for any pre-declared values.
+			//
+			// This is necessary for the httputil.ReverseProxy type to forward them correctly.
+			// See [here](https://github.com/golang/go/blob/5e3c4016a436c357a57a6f7870913c6911c6904e/src/net/http/httputil/reverseproxy.go#L509)
+			//
+			// We manually call `CanonicalHeaderKey` to preserve the invariant that
+			// all keys in a `Header` instance must be in their canonical format.
+			w.trailer[http.CanonicalHeaderKey(k)] = []string{}
 		}
-		// We manually call `CanonicalHeaderKey` to preserve the invariant that
-		// all keys in a `Header` instance must be in their canonical format.
-		w.trailer[http.CanonicalHeaderKey(k)] = []string{}
 	}
 
 	// Filter out hop-by-hop headers.

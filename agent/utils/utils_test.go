@@ -293,6 +293,26 @@ func TestStreamingResponseWriter(t *testing.T) {
 			WantResponseBody: "OK",
 		},
 		{
+			Description: "Coalesced trailer",
+			Request:     &http.Request{},
+			Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Add("Trailer", "Foo, Bar")
+				w.Write([]byte("OK"))
+				w.Header().Add("Foo", "Baz")
+				w.Header().Add("Bar", "Baz")
+			}),
+			WantResponse: &http.Response{
+				Status:     http.StatusText(http.StatusOK),
+				StatusCode: http.StatusOK,
+				Header:     http.Header{},
+				Trailer: http.Header{
+					"Foo": []string{"Baz"},
+					"Bar": []string{"Baz"},
+				},
+			},
+			WantResponseBody: "OK",
+		},
+		{
 			Description: "Undeclared trailer",
 			Request:     &http.Request{},
 			Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
